@@ -62,6 +62,8 @@ export function isInside(parent: string, child: string): boolean {
 export interface FileEntry {
   /** Absolute path. */
   path: string;
+  /** Path relative to the directory that was listed (forward slashes). */
+  rel: string;
   /** File name with extension. */
   name: string;
   /** File name without extension. */
@@ -71,22 +73,58 @@ export interface FileEntry {
   size: number;
 }
 
+export interface ListOptions {
+  /** Keep only these lower-case extensions (with dot). */
+  exts?: readonly string[];
+  /** Descend into subdirectories (default: true). */
+  recursive?: boolean;
+}
+
 /**
- * Non-recursive listing of regular files in `dir`.
- * Optional `exts` filters by lower-case extension (with dot).
+ * Lists regular files under `dir` (recursively by default), sorted by relative path.
+ * Symlinks are not followed. Unreadable subdirectories are skipped.
  */
-export async function listFiles(dir: string, exts?: readonly string[]): Promise<FileEntry[]> {
-  const wanted = exts ? new Set(exts.map((e) => e.toLowerCase())) : undefined;
-  const entries = await readdir(dir, { withFileTypes: true });
+export async function listFiles(dir: string, opts: ListOptions = {}): Promise<FileEntry[]> {
+  const wanted = opts.exts ? new Set(opts.exts.map((e) => e.toLowerCase())) : undefined;
+  const recursive = opts.recursive ?? true;
+  const root = toAbsolute(dir);
   const files: FileEntry[] = [];
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    const ext = path.extname(entry.name).toLowerCase();
-    if (wanted && !wanted.has(ext)) continue;
-    const full = path.join(dir, entry.name);
-    const { size } = await stat(full);
-    files.push({ path: full, name: entry.name, stem: path.basename(entry.name, ext), ext, size });
+
+  async function walk(current: string): Promise<void> {
+    let entries;
+    try {
+      entries = await readdir(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (recursive) await walk(full);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const rawExt = path.extname(entry.name);
+      const ext = rawExt.toLowerCase();
+      if (wanted && !wanted.has(ext)) continue;
+      const { size } = await stat(full);
+      files.push({
+        path: full,
+        rel: path.relative(root, full).split(path.sep).join('/'),
+        name: entry.name,
+        stem: entry.name.slice(0, entry.name.length - rawExt.length),
+        ext,
+        size,
+      });
+    }
   }
-  files.sort((a, b) => a.name.localeCompare(b.name));
+
+  await walk(root);
+  files.sort((a, b) => compareRel(a.rel, b.rel));
   return files;
+}
+
+/** Locale-independent ordering (by code point) so results are stable across machines. */
+export function compareRel(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }

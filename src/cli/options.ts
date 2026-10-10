@@ -3,6 +3,7 @@ import path from 'node:path';
 import { z } from 'zod';
 
 import { isDirectory, isReadable, isSamePath, isWritable, toAbsolute } from '../core/fs/index.js';
+import { IMPLEMENTED_MODES, LOCALIZATION_MODES, type LocalizationModeId } from '../modes/index.js';
 
 /**
  * Stage 1 — validation of CLI parameters.
@@ -10,11 +11,7 @@ import { isDirectory, isReadable, isSamePath, isWritable, toAbsolute } from '../
  * writable) are done afterwards so the user gets all errors at once.
  */
 
-export const LOCALIZATION_MODES = ['av', 'text'] as const;
-export type LocalizationModeId = (typeof LOCALIZATION_MODES)[number];
-
-/** Modes that actually work in this version. */
-export const IMPLEMENTED_MODES: readonly LocalizationModeId[] = ['av'];
+export { LOCALIZATION_MODES } from '../modes/index.js';
 
 export const DEFAULT_BACKUP_DIR_NAME = 'dmc3-localizer-backup';
 

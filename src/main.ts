@@ -8,7 +8,10 @@ import {
   parseLocalizeOptions,
   type RawLocalizeOptions,
 } from './cli/options.js';
+import { hasErrors, printPlanSummary } from './cli/summary.js';
+import { analyse } from './core/analyser/index.js';
 import { setLogLevel, ui } from './core/console/index.js';
+import { getMode } from './modes/index.js';
 
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json') as { name: string; version: string; description: string };
@@ -97,8 +100,23 @@ async function runLocalize(raw: RawLocalizeOptions): Promise<void> {
   ui.debug(`ffmpeg-dir: ${options.ffmpegDir ?? '(bundled / PATH)'}`);
   if (options.dryRun) ui.warn('dry-run: nothing will be written');
 
-  // Stage 1b (analysis) plugs in here.
-  ui.warn('analysis: not implemented yet');
+  const mode = getMode(options.mode);
+  const plan = await analyse({
+    spec: mode.spec,
+    sourceDir: options.source,
+    targetDir: options.target,
+  });
+  printPlanSummary(plan, mode.spec);
+
+  if (hasErrors(plan)) {
+    ui.error('cannot continue — fix the errors above');
+    process.exitCode = 1;
+    return;
+  }
+  if (options.dryRun) return;
+
+  // Stage 2 (confirm), 3 (backup), 4 (apply) plug in here.
+  ui.warn('confirm/backup/apply: not implemented yet');
 }
 
 try {

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { Command, InvalidArgumentError } from 'commander';

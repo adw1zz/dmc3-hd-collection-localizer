@@ -9,6 +9,14 @@
     "node": ">=24"
   },
   "main": "dist/main.js",
+  "bin": {
+    "dmc3-hd-collection-localizer": "dist/main.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "tsx src/main.ts",
     "dev": "tsx watch src/main.ts",

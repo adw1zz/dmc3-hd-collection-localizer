@@ -1,1 +1,1 @@
-# dmc3_hd_collection_ru_speach_script
+# dmc3-hd-collection-localizator

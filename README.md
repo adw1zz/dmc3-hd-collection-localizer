@@ -25,19 +25,46 @@ track is replaced; speech banks are copied over.
 ```sh
 git clone https://github.com/adw1zz/dmc3-hd-collection-localizer.git
 cd dmc3-hd-collection-localizer
-npm install
-npm run build
+npm install        # also builds dist/
+npm link           # makes the `dmc3-hd-collection-localizer` command available globally
 ```
 
-Run with `node dist/main.js …`. During development `npm run start -- …` runs the TypeScript
-sources directly.
+`npm link` creates a global command that points at this folder. If you'd rather not install
+anything globally, run it from the repository folder with `npx dmc3-hd-collection-localizer …`
+instead — every example below works with either form.
+
+### Uninstall
+
+1. Put the original game files back (skip this if you want to keep the localization):
+
+   ```sh
+   dmc3-hd-collection-localizer restore --backup-dir "./dmc3-localizer-backup"
+   ```
+
+   or let Steam do it: right-click the game → Properties → Installed Files → _Verify integrity of
+   game files_.
+
+2. Remove the global command (only if you ran `npm link`):
+
+   ```sh
+   npm unlink -g dmc3-hd-collection-localizer
+   ```
+
+   `npm ls -g --depth=0` should no longer list it.
+
+3. Delete the repository folder. The backup folder (`dmc3-localizer-backup` next to where you ran
+   the tool, unless you passed `--backup-dir`) lives inside it by default — delete it only after
+   step 1, since it holds the original game files.
+
+Nothing else is written anywhere: no registry keys, no files in the game folder other than the
+localized media themselves.
 
 ## Usage
 
 ### Localize
 
 ```sh
-node dist/main.js localize --source "<folder with localized files>" --target "<...>\Devil May Cry HD Collection\data\dmc3"
+dmc3-hd-collection-localizer localize --source "<folder with localized files>" --target "<...>\Devil May Cry HD Collection\data\dmc3"
 ```
 
 - `--source` is searched **recursively**: any file whose name (without extension) matches a game
@@ -56,7 +83,7 @@ The tool then:
    and only then renamed over the original. A failure in one file never affects the others.
 6. Prints a **result** summary. Exit code is `0` on success, `1` if anything failed.
 
-Useful options (`node dist/main.js localize --help` lists them all):
+Useful options (`dmc3-hd-collection-localizer localize --help` lists them all):
 
 | Option                   | Meaning                                                         |
 | ------------------------ | --------------------------------------------------------------- |
@@ -72,7 +99,7 @@ Useful options (`node dist/main.js localize --help` lists them all):
 ### Restore
 
 ```sh
-node dist/main.js restore --backup-dir "./dmc3-localizer-backup"
+dmc3-hd-collection-localizer restore --backup-dir "./dmc3-localizer-backup"
 ```
 
 Copies every backed-up original back into the game folder after verifying its checksum.
@@ -112,10 +139,10 @@ of every file the tool wrote.
 ## Development
 
 ```sh
-npm run start -- localize …   # run from sources (tsx)
+npm run start -- localize …   # run from sources (tsx), no build needed
 npm run check                 # typecheck + lint + format check + tests
 npm run test                  # vitest (includes an end-to-end test that needs ffmpeg on PATH)
-npm run build                 # tsc → dist/
+npm run build                 # tsc → dist/ (also runs automatically on `npm install`)
 ```
 
 Project layout: `src/main.ts` (CLI and pipeline), `src/cli/` (options, summary, progress),

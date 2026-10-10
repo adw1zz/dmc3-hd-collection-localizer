@@ -21,6 +21,7 @@
     "start": "tsx src/main.ts",
     "dev": "tsx watch src/main.ts",
     "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
     "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\"",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

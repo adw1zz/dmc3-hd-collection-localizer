@@ -23,8 +23,8 @@ track is replaced; speech banks are copied over.
 ## Install
 
 ```sh
-git clone <this repository>
-cd dmc3-hd-collection-localizator
+git clone https://github.com/adw1zz/dmc3-hd-collection-localizer.git
+cd dmc3-hd-collection-localizer
 npm install
 npm run build
 ```

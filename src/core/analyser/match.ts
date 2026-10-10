@@ -18,10 +18,16 @@ export function matchKey(file: FileEntry): string {
   return file.stem.toLowerCase();
 }
 
+export interface MatchOptions {
+  /** Ignore category include filters — pair everything that matches by name. */
+  all?: boolean;
+}
+
 export function matchScans(
   categories: readonly FileCategory[],
   target: Scan,
   source: Scan,
+  opts: MatchOptions = {},
 ): MatchResult {
   const pairs: Pair[] = [];
   const unmatchedTarget: UnmatchedTarget[] = [];
@@ -54,14 +60,18 @@ export function matchScans(
             `(ignored: ${alternatives.map((a) => a.rel).join(', ')})`,
         });
       }
-      pairs.push({
+      const pair: Pair = {
         category: category.id,
         key,
         target: t,
         source: best,
         alternatives,
         issues: pairIssues,
-      });
+      };
+      if (!opts.all && category.include && !category.include.some((re) => re.test(t.stem))) {
+        pair.excluded = category.excludedLabel ?? 'not in the include list';
+      }
+      pairs.push(pair);
     }
 
     const seenTargetKeys = new Map<string, number>();

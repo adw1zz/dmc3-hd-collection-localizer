@@ -1,5 +1,7 @@
 import pc from 'picocolors';
 
+export { confirm, NotInteractiveError, parseYesNo } from './confirm.js';
+
 /**
  * Console output for the CLI. Every module prints through this so that
  * colours, verbosity and (later) log-file mirroring live in one place.

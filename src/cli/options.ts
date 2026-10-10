@@ -26,6 +26,7 @@ export const localizeOptionsSchema = z.object({
   backupDir: z.string().min(1).optional(),
   ffmpegDir: z.string().min(1).optional(),
   jobs: positiveInt.max(64).default(defaultJobs),
+  all: z.boolean().default(false),
   yes: z.boolean().default(false),
   dryRun: z.boolean().default(false),
   verbose: z.boolean().default(false),
@@ -43,9 +44,11 @@ export interface LocalizeOptions {
   target: string;
   /** Absolute path where originals are copied before being overwritten. */
   backupDir: string;
-  /** Directory containing ffmpeg/ffprobe, or undefined for bundled/PATH. */
+  /** Directory containing ffmpeg/ffprobe, or undefined for env/PATH lookup. */
   ffmpegDir: string | undefined;
   jobs: number;
+  /** Ignore the modes' include filters (e.g. also replace music). */
+  all: boolean;
   yes: boolean;
   dryRun: boolean;
   verbose: boolean;
@@ -113,6 +116,7 @@ export async function parseLocalizeOptions(
     backupDir,
     ffmpegDir,
     jobs: o.jobs,
+    all: o.all,
     yes: o.yes,
     dryRun: o.dryRun,
     verbose: o.verbose,

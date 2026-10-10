@@ -23,6 +23,12 @@ export const audioVideoSpec: ModeSpec = {
       label: 'in-game audio',
       targetExts: ['.ogg'],
       sourceExts: ['.ogg', '.bin'],
+      // Speech lives in mission-prefixed banks (m01_c00, m03_b00, m99_c01, …) and
+      // in-engine demo tracks (m_demo_04_004). Everything else (Battle_*, Boss_*,
+      // Stage_*, Hine_*, Staffroll, character themes …) is music — the 2006 port
+      // ships different cuts of it, so it is excluded unless --all is given.
+      include: [/^m\d\d_/i, /^m_demo_/i],
+      excludedLabel: 'music, not speech — use --all to include',
     },
   ],
 };

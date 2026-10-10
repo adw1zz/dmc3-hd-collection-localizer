@@ -56,10 +56,15 @@ describe('analyse (av spec, layout like the real game dirs)', () => {
     const plan = await analyse({ spec: audioVideoSpec, sourceDir: source, targetDir: target });
 
     expect(plan.mode).toBe('av');
-    expect(plan.pairs.map((p) => `${p.category}: ${p.target.rel} <- ${p.source.rel}`)).toEqual([
+    expect(
+      plan.pairs.map(
+        (p) =>
+          `${p.category}: ${p.target.rel} <- ${p.source.rel}${p.excluded ? ' (excluded)' : ''}`,
+      ),
+    ).toEqual([
       'fmv: Video/GameOver.webm <- mov/GameOver.mpg',
       'fmv: Video/m01_s00.webm <- mov/m01_s00.mpg',
-      'sound: afs/sound/Battle_00.ogg <- sound/Battle_00.bin',
+      'sound: afs/sound/Battle_00.ogg <- sound/Battle_00.bin (excluded)',
       'sound: afs/sound/m01_c00.ogg <- sound/m01_c00.bin',
     ]);
     expect(plan.unmatchedTarget.map((u) => u.file.rel)).toEqual([

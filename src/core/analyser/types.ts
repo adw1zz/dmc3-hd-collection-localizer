@@ -1,3 +1,4 @@
+import type { ProbeInfo } from '../ffmpeg/index.js';
 import type { FileEntry } from '../fs/index.js';
 
 /**
@@ -18,6 +19,13 @@ export interface FileCategory {
   targetExts: readonly string[];
   /** Acceptable source extensions, in priority order (first wins on duplicates). */
   sourceExts: readonly string[];
+  /**
+   * If set, only files whose stem matches one of these patterns are localized
+   * by default; the rest are reported as excluded (e.g. music). `--all` lifts it.
+   */
+  include?: readonly RegExp[];
+  /** Short label for what the include filter keeps out, e.g. "music". */
+  excludedLabel?: string;
 }
 
 export interface ModeSpec {
@@ -44,7 +52,18 @@ export interface Pair {
   source: FileEntry;
   /** Other source candidates that lost to `source` on extension priority. */
   alternatives: readonly FileEntry[];
+  /** ffprobe results, filled by the probe step; absent if probing was skipped or failed. */
+  probe?: PairProbe;
+  /** Set when the category's include filter left this pair out (reason). Not an error. */
+  excluded?: string;
   issues: Issue[];
+}
+
+export interface PairProbe {
+  source: ProbeInfo;
+  target: ProbeInfo;
+  /** `source.duration - target.duration`, seconds; NaN if either is unknown. */
+  durationDelta: number;
 }
 
 export interface UnmatchedTarget {

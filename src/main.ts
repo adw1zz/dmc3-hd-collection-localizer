@@ -8,9 +8,11 @@ import {
   parseLocalizeOptions,
   type RawLocalizeOptions,
 } from './cli/options.js';
-import { hasErrors, printPlanSummary } from './cli/summary.js';
-import { analyse } from './core/analyser/index.js';
-import { setLogLevel, ui } from './core/console/index.js';
+import { hasBlockingErrors, printPlanSummary } from './cli/summary.js';
+import { analyse, probePlan } from './core/analyser/index.js';
+import { activePairs } from './core/analyser/index.js';
+import { confirm, NotInteractiveError, setLogLevel, ui } from './core/console/index.js';
+import { FfmpegNotFoundError, resolveFfmpeg } from './core/ffmpeg/index.js';
 import { getMode } from './modes/index.js';
 
 const require = createRequire(import.meta.url);
@@ -48,12 +50,17 @@ function buildProgram(): Command {
     )
     .option(
       '--ffmpeg-dir <dir>',
-      'use ffmpeg/ffprobe from this directory instead of the bundled ones',
+      'directory containing ffmpeg and ffprobe (default: $DMC3_FFMPEG_DIR, then PATH)',
     )
     .option(
       '-j, --jobs <n>',
       'parallel ffmpeg/ffprobe processes (default: half of CPU cores)',
       parseIntOption,
+    )
+    .option(
+      '-a, --all',
+      'localize every matched file, including ones the mode treats as non-speech (music)',
+      false,
     )
     .option('-y, --yes', 'do not ask for confirmation', false)
     .option('-n, --dry-run', 'analyse and print the plan, change nothing', false)
@@ -97,26 +104,71 @@ async function runLocalize(raw: RawLocalizeOptions): Promise<void> {
   ui.info(`target:  ${ui.fmt.path(options.target)}`);
   ui.info(`backup:  ${ui.fmt.path(options.backupDir)}`);
   ui.info(`jobs:    ${ui.fmt.value(options.jobs)}`);
-  ui.debug(`ffmpeg-dir: ${options.ffmpegDir ?? '(bundled / PATH)'}`);
   if (options.dryRun) ui.warn('dry-run: nothing will be written');
+
+  let bins;
+  try {
+    bins = await resolveFfmpeg({ dir: options.ffmpegDir });
+  } catch (e) {
+    if (e instanceof FfmpegNotFoundError) {
+      ui.error(e.message);
+      process.exitCode = 1;
+      return;
+    }
+    throw e;
+  }
+  ui.debug(`ffmpeg:  ${bins.ffmpeg} (${bins.origin})`);
+  ui.debug(`ffprobe: ${bins.ffprobe} (${bins.origin})`);
 
   const mode = getMode(options.mode);
   const plan = await analyse({
     spec: mode.spec,
     sourceDir: options.source,
     targetDir: options.target,
+    all: options.all,
   });
+
+  const toProbe = plan.pairs.filter((p) => p.excluded === undefined);
+  if (toProbe.length > 0) {
+    const files = new Set(toProbe.flatMap((p) => [p.source.path, p.target.path])).size;
+    ui.info(`probing ${ui.fmt.value(files)} files with ffprobe (${options.jobs} parallel)…`);
+    const started = Date.now();
+    await probePlan(plan, { ffprobeBin: bins.ffprobe, jobs: options.jobs });
+    ui.debug(`probe finished in ${((Date.now() - started) / 1000).toFixed(1)} s`);
+  }
+
   printPlanSummary(plan, mode.spec);
 
-  if (hasErrors(plan)) {
-    ui.error('cannot continue — fix the errors above');
+  if (hasBlockingErrors(plan)) {
     process.exitCode = 1;
     return;
   }
   if (options.dryRun) return;
 
-  // Stage 2 (confirm), 3 (backup), 4 (apply) plug in here.
-  ui.warn('confirm/backup/apply: not implemented yet');
+  // Stage 2 — confirm.
+  const n = activePairs(plan).length;
+  if (!options.yes) {
+    let ok: boolean;
+    try {
+      ok = await confirm(
+        `Overwrite ${n} file(s) in ${ui.fmt.path(options.target)}? Originals go to ${ui.fmt.path(options.backupDir)}.`,
+      );
+    } catch (e) {
+      if (e instanceof NotInteractiveError) {
+        ui.error(e.message);
+        process.exitCode = 1;
+        return;
+      }
+      throw e;
+    }
+    if (!ok) {
+      ui.info('aborted, nothing changed');
+      return;
+    }
+  }
+
+  // Stage 3 (backup), 4 (apply) plug in here.
+  ui.warn('backup/apply: not implemented yet');
 }
 
 try {

@@ -92,6 +92,25 @@ describe('matchScans', () => {
     expect(r.issues.map((i) => i.code)).toEqual(['duplicate-target']);
   });
 
+  it('marks pairs outside the include list as excluded unless all=true', () => {
+    const speechOnly: FileCategory = {
+      ...sound,
+      include: [/^m\d\d_/i],
+      excludedLabel: 'music',
+    };
+    const t = scan({ sound: ['afs/sound/M01_c00.ogg', 'afs/sound/Battle_00.ogg'] });
+    const s = scan({ sound: ['sound/m01_c00.bin', 'sound/Battle_00.bin'] });
+
+    const r = matchScans([speechOnly], t, s);
+    expect(r.pairs.map((p) => [p.target.name, p.excluded])).toEqual([
+      ['M01_c00.ogg', undefined],
+      ['Battle_00.ogg', 'music'],
+    ]);
+
+    const all = matchScans([speechOnly], t, s, { all: true });
+    expect(all.pairs.every((p) => p.excluded === undefined)).toBe(true);
+  });
+
   it('handles an empty side', () => {
     const r = matchScans([fmv, sound], scan({ fmv: ['Video/a.webm'] }), scan({}));
     expect(r.pairs).toEqual([]);

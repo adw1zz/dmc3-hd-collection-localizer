@@ -64,9 +64,18 @@ export function isExcluded(pair: Pair): boolean {
   return pair.excluded !== undefined;
 }
 
+/** Already localized by a previous run (backup manifest says so) — nothing to do. */
+export function isDone(pair: Pair): boolean {
+  return pair.issues.some((i) => i.code === 'already-localized');
+}
+
 /** Pairs that will actually be localized. */
 export function activePairs(plan: Plan): Pair[] {
-  return plan.pairs.filter((p) => !isExcluded(p) && !isSkipped(p));
+  return plan.pairs.filter((p) => !isExcluded(p) && !isSkipped(p) && !isDone(p));
+}
+
+export function donePairs(plan: Plan): Pair[] {
+  return plan.pairs.filter((p) => !isExcluded(p) && !isSkipped(p) && isDone(p));
 }
 
 export function skippedPairs(plan: Plan): Pair[] {
@@ -79,7 +88,10 @@ export function excludedPairs(plan: Plan): Pair[] {
 
 /** Plan-level errors block the run; per-pair errors only skip that pair. */
 export function hasBlockingErrors(plan: Plan): boolean {
-  return plan.issues.some((i) => i.level === 'error') || activePairs(plan).length === 0;
+  return (
+    plan.issues.some((i) => i.level === 'error') ||
+    activePairs(plan).length + donePairs(plan).length === 0
+  );
 }
 
 export { matchScans } from './match.js';

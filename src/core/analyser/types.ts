@@ -34,7 +34,8 @@ export interface ModeSpec {
   categories: readonly FileCategory[];
 }
 
-export type IssueLevel = 'warn' | 'error';
+/** `info` issues are neutral facts (e.g. "already localized"); they never count as problems. */
+export type IssueLevel = 'info' | 'warn' | 'error';
 
 export interface Issue {
   level: IssueLevel;

@@ -2,7 +2,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
 
-import { isDirectory, isReadable, isSamePath, isWritable, toAbsolute } from '../core/fs/index.js';
+import {
+  isDirectory,
+  isInside,
+  isReadable,
+  isSamePath,
+  isWritable,
+  toAbsolute,
+} from '../core/fs/index.js';
 import { IMPLEMENTED_MODES, LOCALIZATION_MODES, type LocalizationModeId } from '../modes/index.js';
 
 /**
@@ -86,7 +93,7 @@ export async function parseLocalizeOptions(
   const target = toAbsolute(o.target, cwd);
   const backupDir = o.backupDir
     ? toAbsolute(o.backupDir, cwd)
-    : path.join(cwd, DEFAULT_BACKUP_DIR_NAME, timestampForDir(new Date()));
+    : path.join(cwd, DEFAULT_BACKUP_DIR_NAME);
   const ffmpegDir = o.ffmpegDir ? toAbsolute(o.ffmpegDir, cwd) : undefined;
 
   if (!(await isDirectory(source))) problems.push(`--source: not a directory: ${source}`);
@@ -102,6 +109,8 @@ export async function parseLocalizeOptions(
 
   if (isSamePath(source, target))
     problems.push('--source and --target must be different directories');
+  if (isInside(target, backupDir))
+    problems.push(`--backup-dir must not be inside the target directory: ${backupDir}`);
 
   if (ffmpegDir && !(await isDirectory(ffmpegDir))) {
     problems.push(`--ffmpeg-dir: not a directory: ${ffmpegDir}`);
@@ -123,11 +132,20 @@ export async function parseLocalizeOptions(
   };
 }
 
-/** `2026-10-10_19-45-03` — sortable, Windows-safe. */
-export function timestampForDir(d: Date): string {
-  const p = (n: number): string => String(n).padStart(2, '0');
-  return (
-    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
-    `_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`
-  );
+/** Options of the `restore` subcommand, validated the same way. */
+export interface RestoreOptions {
+  backupDir: string;
+  yes: boolean;
+  verbose: boolean;
+}
+
+export async function parseRestoreOptions(
+  raw: { backupDir: string; yes?: boolean; verbose?: boolean },
+  cwd: string = process.cwd(),
+): Promise<RestoreOptions> {
+  const backupDir = toAbsolute(raw.backupDir, cwd);
+  if (!(await isDirectory(backupDir))) {
+    throw new OptionsError([`--backup-dir: not a directory: ${backupDir}`]);
+  }
+  return { backupDir, yes: raw.yes ?? false, verbose: raw.verbose ?? false };
 }

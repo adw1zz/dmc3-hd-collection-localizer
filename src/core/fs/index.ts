@@ -1,6 +1,8 @@
 import { access, constants, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 
+export { sha256File } from './hash.js';
+
 /**
  * Thin, promise-based helpers over node:fs used by validation and analysis.
  * All functions resolve to booleans instead of throwing for "not there" cases.

@@ -1,7 +1,9 @@
 import {
   activePairs,
+  donePairs,
   excludedPairs,
   hasBlockingErrors,
+  isDone,
   isExcluded,
   isSkipped,
   skippedPairs,
@@ -18,11 +20,13 @@ export function printPlanSummary(plan: Plan, spec: ModeSpec): void {
   for (const category of spec.categories) {
     const pairs = plan.pairs.filter((p) => p.category === category.id);
     const excluded = pairs.filter(isExcluded);
-    const active = pairs.filter((p) => !isExcluded(p) && !isSkipped(p));
     const skipped = pairs.filter((p) => !isExcluded(p) && isSkipped(p));
+    const done = pairs.filter((p) => !isExcluded(p) && !isSkipped(p) && isDone(p));
+    const active = pairs.filter((p) => !isExcluded(p) && !isSkipped(p) && !isDone(p));
     const missing = plan.unmatchedTarget.filter((u) => u.category === category.id);
     ui.info(
       `${category.label}: ${ui.fmt.value(active.length)} to localize` +
+        (done.length > 0 ? `, ${done.length} already localized` : '') +
         (skipped.length > 0 ? `, ${skipped.length} skipped (errors)` : '') +
         (excluded.length > 0 ? `, ${excluded.length} excluded (${excluded[0]?.excluded})` : '') +
         (missing.length > 0 ? `, ${missing.length} without source (kept as is)` : ''),
@@ -31,6 +35,7 @@ export function printPlanSummary(plan: Plan, spec: ModeSpec): void {
       ui.debug(`${p.target.rel}  ←  ${p.source.rel}${describeProbe(p)}`);
       for (const i of p.issues) printIssue(i);
     }
+    for (const p of done) ui.debug(`${p.target.rel}  ←  ${p.source.rel}  (already localized)`);
     for (const p of skipped) {
       ui.debug(`${p.target.rel}  ←  ${p.source.rel}${describeProbe(p)}`);
       for (const i of p.issues) printIssue(i, 'skipped');
@@ -51,6 +56,7 @@ export function printPlanSummary(plan: Plan, spec: ModeSpec): void {
   ui.log('');
   ui.info(
     `${ui.fmt.value(activePairs(plan).length)} pair(s) to localize, ` +
+      (donePairs(plan).length > 0 ? `${donePairs(plan).length} already localized, ` : '') +
       `${skippedPairs(plan).length} skipped, ${excludedPairs(plan).length} excluded, ` +
       `${warnings} warning(s), ${errors} error(s)` +
       ui.fmt.dim(' — run with -v to list every file'),
@@ -99,5 +105,6 @@ function describeProbe(p: Pair): string {
 function printIssue(i: Issue, suffix?: string): void {
   const msg = suffix ? `${i.message} → ${suffix}` : i.message;
   if (i.level === 'error') ui.error(msg);
-  else ui.warn(msg);
+  else if (i.level === 'warn') ui.warn(msg);
+  else ui.debug(msg);
 }

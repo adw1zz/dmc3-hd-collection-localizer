@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { OptionsError, parseLocalizeOptions, timestampForDir } from './options.js';
+import { OptionsError, parseLocalizeOptions } from './options.js';
 
 let tmp: string;
 let source: string;
@@ -37,7 +37,7 @@ describe('parseLocalizeOptions', () => {
     expect(o.mode).toBe('av');
     expect(o.source).toBe(source);
     expect(o.target).toBe(target);
-    expect(o.backupDir.startsWith(path.join(tmp, 'dmc3-localizer-backup'))).toBe(true);
+    expect(o.backupDir).toBe(path.join(tmp, 'dmc3-localizer-backup'));
     expect(o.jobs).toBeGreaterThanOrEqual(1);
     expect(o.yes).toBe(false);
     expect(o.dryRun).toBe(false);
@@ -67,6 +67,11 @@ describe('parseLocalizeOptions', () => {
     expect(problems).toEqual(['--source and --target must be different directories']);
   });
 
+  it('rejects a backup dir inside the target', async () => {
+    const problems = await problemsOf({ source, target, backupDir: path.join(target, 'bak') });
+    expect(problems).toEqual([expect.stringMatching(/--backup-dir must not be inside/)]);
+  });
+
   it('rejects unimplemented mode', async () => {
     const problems = await problemsOf({ source, target, mode: 'text' });
     expect(problems[0]).toMatch(/--mode text: not implemented/);
@@ -76,13 +81,5 @@ describe('parseLocalizeOptions', () => {
     const problems = await problemsOf({ source, target, jobs: 0 });
     expect(problems).toHaveLength(1);
     expect(problems[0]).toMatch(/^--jobs:/);
-  });
-});
-
-describe('timestampForDir', () => {
-  it('is sortable and Windows-safe', () => {
-    const s = timestampForDir(new Date(2026, 9, 10, 9, 5, 3));
-    expect(s).toBe('2026-10-10_09-05-03');
-    expect(s).not.toMatch(/[:<>"/\\|?*]/);
   });
 });

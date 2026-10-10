@@ -150,3 +150,6 @@ vite.config.ts.timestamp-*
 
 # Build output
 dist/
+
+# Local backups of game files made by the tool
+dmc3-localizer-backup/

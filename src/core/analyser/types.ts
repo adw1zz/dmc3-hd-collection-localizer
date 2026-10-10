@@ -86,8 +86,22 @@ export interface Plan {
   issues: Issue[];
 }
 
+export interface ApplyContext {
+  ffmpeg: string;
+  ffprobe: string;
+  /** Where the mode must write its output; the executor verifies it and renames it over the target. */
+  tmpPath: string;
+}
+
+export interface ApplyOutput {
+  /** Seconds the output should last; the executor checks the written file against it. */
+  expectedDuration?: number;
+  /** Short human description of what was done, e.g. "mp2 → libopus 128k" or "copied". */
+  how: string;
+}
+
 export interface LocalizationMode {
   spec: ModeSpec;
-  /** Localize one pair. Implemented per mode at stage 4. */
-  apply(pair: Pair): Promise<void>;
+  /** Produce the localized file for `pair` at `ctx.tmpPath`. Must not touch `pair.target.path`. */
+  apply(pair: Pair, ctx: ApplyContext): Promise<ApplyOutput>;
 }

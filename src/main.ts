@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { Command, InvalidArgumentError } from 'commander';
 
 import {
@@ -17,7 +18,9 @@ import {
   manifestPath,
   type TargetState,
 } from './core/backup/index.js';
+import { startProgress } from './cli/progress.js';
 import { hasBlockingErrors, printPlanSummary } from './cli/summary.js';
+import { applyPlan, type ApplyReport } from './core/apply/index.js';
 import { analyse, probePlan } from './core/analyser/index.js';
 import { activePairs, donePairs, skippedPairs } from './core/analyser/index.js';
 import { confirm, NotInteractiveError, setLogLevel, ui } from './core/console/index.js';
@@ -160,7 +163,16 @@ async function runLocalize(raw: RawLocalizeOptions): Promise<void> {
     const files = new Set(toProbe.flatMap((p) => [p.source.path, p.target.path])).size;
     ui.info(`probing ${ui.fmt.value(files)} files with ffprobe (${options.jobs} parallel)…`);
     const started = Date.now();
-    await probePlan(plan, { ffprobeBin: bins.ffprobe, jobs: options.jobs });
+    const probeProgress = startProgress(files, 'probing');
+    try {
+      await probePlan(plan, {
+        ffprobeBin: bins.ffprobe,
+        jobs: options.jobs,
+        onProgress: (_done, _total, file) => probeProgress.tick(path.basename(file)),
+      });
+    } finally {
+      probeProgress.stop();
+    }
     ui.debug(`probe finished in ${((Date.now() - started) / 1000).toFixed(1)} s`);
   }
 
@@ -233,20 +245,59 @@ async function runLocalize(raw: RawLocalizeOptions): Promise<void> {
   // Stage 3b — copy originals into the backup.
   ui.title('Backup');
   let copied = 0;
-  for (const p of work) {
-    const state = await backup.backup(p.target.rel, states.get(p.target.rel));
-    if (state === 'new' || state === 'changed') {
-      copied += 1;
-      ui.debug(`${p.target.rel} → ${backup.copyPath(p.target.rel)}`);
+  const backupProgress = startProgress(work.length, 'backing up');
+  try {
+    for (const p of work) {
+      const state = await backup.backup(p.target.rel, states.get(p.target.rel));
+      if (state === 'new' || state === 'changed') copied += 1;
+      backupProgress.tick(p.target.rel);
     }
+  } finally {
+    backupProgress.stop();
   }
   await backup.save();
   ui.success(
     `${copied} original(s) copied, ${work.length - copied} already in backup — manifest: ${ui.fmt.path(manifestPath(options.backupDir))}`,
   );
 
-  // Stage 4 (apply) plugs in here; it will call backup.recordResult() per file and backup.save().
-  ui.warn('apply: not implemented yet');
+  // Stage 4 — apply.
+  ui.title('Localizing');
+  const applyProgress = startProgress(work.length, 'localizing');
+  let report: ApplyReport;
+  try {
+    report = await applyPlan(plan, {
+      mode,
+      bins,
+      backup,
+      jobs: options.jobs,
+      onProgress: (_done, _total, r) => {
+        applyProgress.tick(r.pair.target.rel, r.status);
+        if (r.status === 'ok')
+          ui.debug(`${r.pair.target.rel}: ${r.how ?? 'ok'} (${(r.ms / 1000).toFixed(1)} s)`);
+      },
+    });
+  } finally {
+    applyProgress.stop();
+  }
+
+  // Stage 5 — report.
+  ui.title('Result');
+  for (const r of report.results) {
+    if (r.status === 'failed') ui.error(`${r.pair.target.rel}: ${r.error ?? 'unknown error'}`);
+  }
+  const secs = (report.ms / 1000).toFixed(1);
+  if (report.failed === 0) {
+    ui.success(`${report.ok} file(s) localized in ${secs} s`);
+  } else {
+    ui.error(
+      `${report.ok} file(s) localized, ${report.failed} failed in ${secs} s — failed targets were left untouched`,
+    );
+    process.exitCode = 1;
+  }
+  ui.info(
+    `to undo: ${ui.fmt.value(`${pkg.name} restore -b "${options.backupDir}"`)}` +
+      ui.fmt.dim(' (Steam "Verify integrity" also restores the originals)'),
+  );
 }
 
 async function runRestore(raw: {

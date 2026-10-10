@@ -14,3 +14,12 @@ export {
   type ProbeInfo,
   type ProbeStream,
 } from './probe.js';
+export { FfmpegError, runFfmpeg } from './run.js';
+export {
+  audioEncodeArgs,
+  audioEncodeParams,
+  containerFormat,
+  DEFAULT_AUDIO_BITRATE,
+  UnsupportedCodecError,
+  type AudioEncodeParams,
+} from './encode.js';
